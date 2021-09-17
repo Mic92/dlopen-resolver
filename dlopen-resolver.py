@@ -57,6 +57,7 @@ def get_libname(target: Proc, callsite: int) -> Optional[str]:
     for strlen, c in enumerate(libname):
         if c == "\x00":
             libname = libname[:strlen]
+            break
     return libname
 
 
