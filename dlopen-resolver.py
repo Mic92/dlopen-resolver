@@ -78,7 +78,9 @@ def main() -> None:
     libs = set()
     for callsite in callsites:
         debug(f"analyze callsite: 0x{callsite:x}")
-        libs.add(get_libname(target, callsite))
+        lib = get_libname(target, callsite)
+        if lib:
+            libs.add(lib)
     for lib in libs:
         print(lib)
 
