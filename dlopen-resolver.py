@@ -68,7 +68,10 @@ def main() -> None:
 
     # -2 -> disable stderr
     target = r2pipe.open(sys.argv[1], flags=['-2'])
+    # we don't want to have color output for easier parsing
     target.cmd("e scr.color=false")
+    # timeout esil emulation after one second
+    target.cmd("e esil.timeout=1")
     if not uses_dlopen(target):
         return
     callsites = dlopen_callsites(target)
