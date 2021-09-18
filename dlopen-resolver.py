@@ -2,13 +2,15 @@
 import sys
 import r2pipe
 from logging import debug
-from typing import List, Optional
+from typing import List, Optional, Iterator, Dict, Any
+from intervaltree import IntervalTree, Interval
 
 Proc = r2pipe.open_sync.open
 
 
 def uses_dlopen(target: Proc) -> bool:
     try:
+        # if we can seek to this symbol, it exists
         target.cmd("s sym.imp.dlopen")
     except Exception:
         return False
@@ -16,21 +18,24 @@ def uses_dlopen(target: Proc) -> bool:
 
 
 def dlopen_callsites(target: Proc) -> List[int]:
+    # find all references to imported symbol "dlopen"
     ret = target.cmd("/r sym.imp.dlopen")
     callsites = []
     for reference in ret.split("\n"):
         if reference == "":
             break
         _, addr, reftype, *rest = reference.split(" ")
+        # we are only interested in calls
         if reftype == "[CALL]":
             callsites.append(int(addr, 16))
     return callsites
 
 
-def get_libname(target: Proc, callsite: int) -> Optional[str]:
+def get_libname(target: Proc, callsite: int, mappings: IntervalTree) -> Optional[str]:
     # Seek to the call site
     path_addr = 0
-    # 1. Seek one byte back at the time
+    # Seek one byte back at the time.
+    # This might cause invalid instructions when performing emulation
     for i in range(32):
         offset = callsite - i - 1
         # 1. reset esil register
@@ -49,16 +54,38 @@ def get_libname(target: Proc, callsite: int) -> Optional[str]:
             break
     if path_addr == 0:
         return
+    # address points into unmapped memory
+    if not mappings.at(path_addr):
+        return
 
     # resolve the address to a string
     arg = target.cmdj(f"psj @ {path_addr}")
     libname = arg["string"]
-    # find the end of the string
+    # find the end of the string by looking for a null character
     for strlen, c in enumerate(libname):
         if c == "\x00":
-            libname = libname[:strlen]
-            break
+            return libname[:strlen]
+    # otherwise return the whole string
     return libname
+
+
+def get_readable_mappings(target: Proc) -> IntervalTree:
+    # returns sections of the exectuable and their load addresses + permissions
+    sections = target.cmdj("iSj")
+
+    def mapping(section: List[Dict[str, Any]]) -> Iterator[Interval]:
+        for section in sections:
+            start = section["vaddr"]
+            vsize = section["vsize"]
+            # if vaddr is 0, than this section is not mapped into memory
+            if start == 0 or vsize == 0:
+                continue
+            # we are only interested in sections we can from in memory
+            if not "r" in section["perm"]:
+                continue
+            yield Interval(start, start + vsize, section["name"])
+
+    return IntervalTree(mapping(sections))
 
 
 def main() -> None:
@@ -67,7 +94,10 @@ def main() -> None:
         return
 
     # -2 -> disable stderr
-    target = r2pipe.open(sys.argv[1], flags=['-2'])
+    target = r2pipe.open(sys.argv[1], flags=["-2"])
+
+    mappings = get_readable_mappings(target)
+
     # we don't want to have color output for easier parsing
     target.cmd("e scr.color=false")
     # timeout esil emulation after one second
@@ -78,7 +108,7 @@ def main() -> None:
     libs = set()
     for callsite in callsites:
         debug(f"analyze callsite: 0x{callsite:x}")
-        lib = get_libname(target, callsite)
+        lib = get_libname(target, callsite, mappings)
         if lib:
             libs.add(lib)
     for lib in libs:

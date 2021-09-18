@@ -6,9 +6,11 @@ stdenv.mkDerivation {
   ];
   pythonPath = [
     python3.pkgs.r2pipe
+    python3.pkgs.intervaltree
   ];
   buildInputs = [
     python3.pkgs.r2pipe
+    python3.pkgs.intervaltree
   ];
   dontUnpack = true;
   installPhase = ''
