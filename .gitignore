@@ -1,1 +1,4 @@
-result
+# nix-build symlink
+/result
+# test binary
+/main
