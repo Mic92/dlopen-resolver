@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import sys
 import r2pipe
+import logging
 from logging import debug
 from typing import List, Optional, Iterator, Dict, Any
 from intervaltree import IntervalTree, Interval
 
 Proc = r2pipe.open_sync.open
 
+# for debugging
+#logging.basicConfig(level=logging.DEBUG)
 
 def uses_dlopen(target: Proc) -> bool:
     try:
@@ -27,6 +30,7 @@ def dlopen_callsites(target: Proc) -> List[int]:
         _, addr, reftype, *rest = reference.split(" ")
         # we are only interested in calls
         if reftype == "[CALL]":
+            debug(f"found callsite at {addr}")
             callsites.append(int(addr, 16))
     return callsites
 
@@ -42,6 +46,7 @@ def get_libname(target: Proc, callsite: int, mappings: IntervalTree) -> Optional
         # 2. seek to offset
         # 3. run esil emulation from current offset until callsite
         ret = target.cmd(f"ar0; s {offset}; aefa {callsite}")
+        debug(f"callsite=0x{callsite:x} offset=0x{offset}\n{ret}")
         args = ret.split("\n")
 
         # parse first argument set at callsite
