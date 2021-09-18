@@ -40,6 +40,7 @@ def get_libname(target: Proc, callsite: int, mappings: IntervalTree) -> Optional
     path_addr = 0
     # Seek one byte back at the time.
     # This might cause invalid instructions when performing emulation
+    found = False
     for i in range(32):
         offset = callsite - i - 1
         # 1. reset esil register
@@ -54,13 +55,11 @@ def get_libname(target: Proc, callsite: int, mappings: IntervalTree) -> Optional
             path_addr = int(args[0].split(" ")[1], 16)
         except IndexError:
             continue
-        if path_addr != 0:
-            # did not found a solution
+        if mappings.at(path_addr) and path_addr != 0:
+            found = True
+            # found a valid address
             break
-    if path_addr == 0:
-        return
-    # address points into unmapped memory
-    if not mappings.at(path_addr):
+    if not found:
         return
 
     # resolve the address to a string
