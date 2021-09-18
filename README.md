@@ -1,6 +1,6 @@
 # dlopen-resolver
 
-Find library names opened dlopen in a binary statically:
+Find library names opened by dlopen in a binary by statical analysis:
 
 ```console
 $ python dlopen-resolver.py $(which htop)
@@ -17,4 +17,4 @@ trivial way to compute the right value.
 ## How does it work:
 
 This script uses radare2 under the hood to find all function calls and than
-tries to interfere the library name argument passed using emulation.
+tries to infer the library name argument passed using emulation.
