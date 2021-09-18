@@ -11,6 +11,8 @@ stdenv.mkDerivation {
   buildInputs = [
     python3.pkgs.r2pipe
     python3.pkgs.intervaltree
+    # useful for debugging
+    radare2
   ];
   dontUnpack = true;
   installPhase = ''
